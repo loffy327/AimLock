@@ -1,1 +1,4 @@
-xin chao 
+(function(){
+  eval(atob("bGV0IGM9IndoaXRlIixwPXt4OjEwMCx5OjEwMH0sZT17eDoxMjAseToxMDUsaHA6MTAwfTsKZnVuY3Rpb24gYShwLGUpe2xldCBkPWUueC1wLngsZj1lLnktcC55LGc9TWF0aC5zcXJ0KGQqZCtmKmYpO2lmKGc8NTApe2M9InJlZCI7Y29uc29sZS5sb2coIuKdpSBBaW1Mb2NrIE9OIik7cC54Kz0oZS54LXAueCkqMC41O3AueSs9KGUueS1wLnkpKjAuNTt9ZWxzZXtjb25zb2xlLmxvZygi4oCiIEFpbSBPRkYiKTt9fWEocCxlKTs="));
+})();
+
