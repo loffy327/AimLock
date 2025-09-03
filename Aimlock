@@ -1,4 +1,65 @@
-(function(){
-  eval(atob("bGV0IGM9IndoaXRlIixwPXt4OjEwMCx5OjEwMH0sZT17eDoxMjAseToxMDUsaHA6MTAwfTsKZnVuY3Rpb24gYShwLGUpe2xldCBkPWUueC1wLngsZj1lLnktcC55LGc9TWF0aC5zcXJ0KGQqZCtmKmYpO2lmKGc8NTApe2M9InJlZCI7Y29uc29sZS5sb2coIuKdpSBBaW1Mb2NrIE9OIik7cC54Kz0oZS54LXAueCkqMC41O3AueSs9KGUueS1wLnkpKjAuNTt9ZWxzZXtjb25zb2xlLmxvZygi4oCiIEFpbSBPRkYiKTt9fWEocCxlKTs="));
-})();
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <thread>
+#include <chrono>
+
+struct Vector3 {
+    float x, y, z;
+    Vector3 operator-(const Vector3& o) const { return {x - o.x, y - o.y, z - o.z}; }
+    float length() const { return std::sqrt(x*x + y*y + z*z); }
+    Vector3 normalize() const { 
+        float len = length(); 
+        return len > 0 ? Vector3{x/len, y/len, z/len} : Vector3{0,0,0}; 
+    }
+};
+
+struct Target { Vector3 pos; bool alive; };
+struct Player { Vector3 pos; Vector3 aimDir; bool autoAim; };
+
+Vector3 CalculateAim(const Vector3& playerPos, const Vector3& targetPos) {
+    return (targetPos - playerPos).normalize();
+}
+
+Vector3 SmoothAim(const Vector3& current, const Vector3& target, float smooth) {
+    return { current.x + (target.x - current.x)*smooth,
+             current.y + (target.y - current.y)*smooth,
+             current.z + (target.z - current.z)*smooth };
+}
+
+Target* ChooseTarget(std::vector<Target>& targets, const Vector3& playerPos) {
+    Target* best = nullptr;
+    float minDist = 1e9;
+    for(auto &t : targets) {
+        if(!t.alive) continue;
+        float dist = (t.pos - playerPos).length();
+        if(dist < minDist) { minDist = dist; best = &t; }
+    }
+    return best;
+}
+
+int main() {
+    Player player = {{0,0,0}, {0,0,1}, true};
+    std::vector<Target> targets = {
+        {{10,0,5}, true}, {{-5,0,8}, true}, {{3,0,12}, true}
+    };
+    float smoothing = 0.2f; // càng nhỏ càng mượt
+
+    for(int frame=0; frame<50; ++frame) {
+        if(player.autoAim) {
+            Target* target = ChooseTarget(targets, player.pos);
+            if(target) {
+                Vector3 aim = CalculateAim(player.pos, target->pos);
+                player.aimDir = SmoothAim(player.aimDir, aim, smoothing);
+                std::cout << "Frame " << frame 
+                          << " | AimDir: x=" << player.aimDir.x
+                          << " y=" << player.aimDir.y
+                          << " z=" << player.aimDir.z << "\n";
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+    return 0;
+}
 
