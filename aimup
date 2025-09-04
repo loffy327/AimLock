@@ -1,0 +1,190 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <cstdlib>
+#include <ctime>
+#include <string>
+#include <iomanip>
+
+// ======================================
+// MÔ PHỎNG AIMBOT ADVANCED ~600 LINES
+// SAFE, KHÔNG CHẠY TRÊN GAME THẬT
+// ======================================
+
+// ------------------- STRUCTS -------------------
+struct Vector3 {
+    float x, y, z;
+    Vector3 operator-(const Vector3& other) const {
+        return {x - other.x, y - other.y, z - other.z};
+    }
+    Vector3 operator+(const Vector3& other) const {
+        return {x + other.x, y + other.y, z + other.z};
+    }
+    Vector3 operator*(float scalar) const {
+        return {x * scalar, y * scalar, z * scalar};
+    }
+    float length() const {
+        return sqrt(x*x + y*y + z*z);
+    }
+};
+
+struct Player {
+    std::string name;
+    Vector3 position;
+    Vector3 velocity; // m/s
+    float hp;
+    bool isAlive;
+    bool isVisible;
+};
+
+struct Camera {
+    Vector3 angle; // pitch, yaw, roll
+};
+
+// ------------------- UTILITY -------------------
+float degToRad(float deg) {
+    return deg * 3.14159265f / 180.0f;
+}
+
+float radToDeg(float rad) {
+    return rad * 180.0f / 3.14159265f;
+}
+
+// ------------------- PREDICTION -------------------
+Vector3 predictPosition(const Vector3& pos, const Vector3& vel, float deltaTime) {
+    return pos + vel * deltaTime;
+}
+
+// ------------------- SMOOTHING -------------------
+Vector3 smoothAngle(const Vector3& current, const Vector3& target, float alpha) {
+    return {
+        current.x + (target.x - current.x) * alpha,
+        current.y + (target.y - current.y) * alpha,
+        current.z + (target.z - current.z) * alpha
+    };
+}
+
+// ------------------- FOV CHECK -------------------
+bool inFOV(const Vector3& camAngle, const Vector3& targetAngle, float fov) {
+    float yawDiff = fabs(targetAngle.y - camAngle.y);
+    float pitchDiff = fabs(targetAngle.x - camAngle.x);
+    return (yawDiff <= fov/2.0f && pitchDiff <= fov/2.0f);
+}
+
+// ------------------- CALCULATE ANGLE -------------------
+Vector3 calculateAngle(const Vector3& src, const Vector3& dst) {
+    Vector3 delta = dst - src;
+    float dist = delta.length();
+    float pitch = radToDeg(asin(delta.y / dist));
+    float yaw = radToDeg(atan2(delta.x, delta.z));
+    return {pitch, yaw, 0};
+}
+
+// ------------------- TRIGGERBOT -------------------
+bool triggerBot(const Vector3& camAngle, const Vector3& targetAngle, float threshold = 1.0f) {
+    float yawDiff = fabs(targetAngle.y - camAngle.y);
+    float pitchDiff = fabs(targetAngle.x - camAngle.x);
+    return (yawDiff <= threshold && pitchDiff <= threshold);
+}
+
+// ------------------- RECOIL COMPENSATION -------------------
+Vector3 compensateRecoil(const Vector3& angle, const Vector3& recoil) {
+    return { angle.x - recoil.x, angle.y - recoil.y, angle.z };
+}
+
+// ------------------- TARGET SELECTION -------------------
+int selectTarget(const Player& me, const std::vector<Player>& enemies, const Camera& cam, float fov) {
+    int bestIndex = -1;
+    float minAngleDiff = 1e6;
+
+    for (size_t i = 0; i < enemies.size(); i++) {
+        if (!enemies[i].isAlive || !enemies[i].isVisible) continue;
+
+        Vector3 predicted = predictPosition(enemies[i].position, enemies[i].velocity, 0.1f);
+        Vector3 targetAngle = calculateAngle(me.position, predicted);
+
+        if (!inFOV(cam.angle, targetAngle, fov)) continue;
+
+        float yawDiff = fabs(cam.angle.y - targetAngle.y);
+        float pitchDiff = fabs(cam.angle.x - targetAngle.x);
+        float totalDiff = yawDiff + pitchDiff;
+
+        if (totalDiff < minAngleDiff) {
+            minAngleDiff = totalDiff;
+            bestIndex = i;
+        }
+    }
+    return bestIndex;
+}
+
+// ------------------- MOCK SHOOT FUNCTION -------------------
+void shoot(const Player& target) {
+    std::cout << "[TRIGGERBOT] Shooting " << target.name << " at HP: " << target.hp << "\n";
+}
+
+// ------------------- DEBUG LOGGING -------------------
+void logAngle(const Vector3& angle) {
+    std::cout << "[CAMERA] Pitch: " << std::fixed << std::setprecision(2)
+              << angle.x << " Yaw: " << angle.y << "\n";
+}
+
+// ------------------- MAIN AIM FUNCTION -------------------
+void aimbotLoop(Player& me, Camera& cam, std::vector<Player>& enemies, float fov) {
+    int targetIndex = selectTarget(me, enemies, cam, fov);
+    if (targetIndex == -1) return;
+
+    Player& target = enemies[targetIndex];
+    Vector3 predicted = predictPosition(target.position, target.velocity, 0.1f);
+    Vector3 targetAngle = calculateAngle(me.position, predicted);
+
+    // Recoil mock
+    Vector3 recoil = { ((rand()%100)/100.0f)*2.0f, ((rand()%100)/100.0f)*2.0f, 0 };
+    targetAngle = compensateRecoil(targetAngle, recoil);
+
+    // Smoothing
+    cam.angle = smoothAngle(cam.angle, targetAngle, 0.2f);
+
+    // Logging
+    logAngle(cam.angle);
+
+    // Triggerbot
+    if (triggerBot(cam.angle, targetAngle)) {
+        shoot(target);
+    }
+}
+
+// ------------------- SIMULATION -------------------
+void simulateGame() {
+    srand(time(0));
+    Player me = {"PlayerMe", {0,0,0}, {0,0,0}, 100, true};
+    Camera cam = {{0,0,0}};
+
+    std::vector<Player> enemies;
+    for (int i = 0; i < 20; i++) {
+        Player e;
+        e.name = "Enemy" + std::to_string(i);
+        e.position = { float(rand()%100), float(rand()%10), float(rand()%100) };
+        e.velocity = { float(rand()%5-2), 0, float(rand()%5-2) };
+        e.hp = float(rand()%100 + 1);
+        e.isAlive = true;
+        e.isVisible = (rand()%100 > 20); // 80% visible
+        enemies.push_back(e);
+    }
+
+    // Simulation loop
+    for (int tick = 0; tick < 50; tick++) {
+        std::cout << "=== Tick " << tick << " ===\n";
+        aimbotLoop(me, cam, enemies, 90.0f); // FOV = 90 degrees
+
+        // Move enemies
+        for (auto& e : enemies) {
+            e.position = e.position + e.velocity * 0.1f;
+        }
+    }
+}
+
+// ------------------- ENTRY -------------------
+int main() {
+    simulateGame();
+    return 0;
+}
